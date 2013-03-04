@@ -28,6 +28,7 @@ import Data.Function ( on )
 import Data.List     ( sort, unfoldr, foldl' )
 import Data.Ratio    ( Ratio )
 import Data.Tuple    ( swap )
+import Data.Word     ( Word )
 
 import Control.Applicative hiding ( (<|>), empty )
 import Text.Parsec         hiding ( char )
@@ -63,10 +64,12 @@ sign          = option "" $ string "-"
 concatParsers :: [Parsec String () String] -> Parsec String () String
 concatParsers = foldl' (liftA2 (++)) $ return []
 
-pInteger  :: ( Read a, Integral a ) => Parsec String () a
-pFloating :: ( Read a, Floating a ) => Parsec String () a
-pInteger      = read <$> concatParsers [ sign, digits ]
-pFloating     = read <$> concatParsers [ sign, digits, decPoint, digits ]
+pInteger            :: ( Read a, Integral a ) => Parsec String () a
+pNonNegativeInteger :: ( Read a, Integral a ) => Parsec String () a
+pFloating           :: ( Read a, Floating a ) => Parsec String () a
+pInteger            = read <$> concatParsers [ sign, digits ]
+pNonNegativeInteger = read <$> concatParsers [ digits ]
+pFloating           = read <$> concatParsers [ sign, digits, decPoint, digits ]
 
 -- | 'fromParsec' @onErr p@ makes an 'ArgParser' from @p@ using @onErr@ to
 -- produce meaningful error messages.  On failure, @onErr@ will receive a
@@ -250,6 +253,16 @@ instance ArgVal Int where
       onErr str = invalidVal str "expected an integer"
 
 instance ArgVal (Maybe Int) where
+  converter = just
+
+instance ArgVal Word where
+  converter = ( parser, int . fromIntegral )
+    where
+    parser = fromParsec onErr pNonNegativeInteger
+      where
+      onErr str = invalidVal str "expected a non-negative integer"
+
+instance ArgVal (Maybe Word) where
   converter = just
 
 instance ArgVal Integer where
